@@ -1,0 +1,60 @@
+name: 'Interact with Orchestrator'
+description: 'Interacts with the orchestrator'
+inputs:
+  token:  
+    description: 'OIDC Token for the site'
+    default: ""
+  audience:
+    description: 'OIDC Token audience. Will only be used if token is not set'
+    default: 'orc.apility.dev'
+  action:
+    description: 'The action we want to take, can be "deploy", "create" or "delete"'
+    required: true
+  name:
+    description: 'Environment name'
+    required: true
+  template:
+    description: 'The site template we want to use. Check documentation for environment list'
+    default: 'php-74'
+  env:
+    description: 'JSON object of env variables we need to inject'
+    default: '{}'
+runs:
+  using: "composite"
+  steps:
+    - name: Create token
+      if: inputs.token == ''
+      shell: bash
+      id: oidc
+      run: |
+        TOKEN=$(curl -sLS "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=$AUDIENCE" -H "User-Agent: actions/oidc-client" -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+        echo "::set-output name=token::$(echo $TOKEN | jq -r .value)"
+      env:
+        AUDIENCE: ${{ inputs.audience }}
+    - name: "Perform 'create' action"
+      shell: bash
+      if: inputs.action == 'create'
+      run: |
+        curl -H "Authorization:Bearer $OIDC_TOKEN" -H "Accepts:application/github-output" -H 'Content-Type: application/json' --data "{\"template\":\"$TEMPLATE\", \"env\":$ENV_VARIABLES}" https://orc.apility.dev/deploy/create?env=$NF_ENV
+      env:
+        OIDC_TOKEN: ${{ steps.oidc.outputs.token }}${{ inputs.token }}
+        NF_ENV: ${{ inputs.name }}
+        TEMPLATE: ${{ inputs.template }}
+        ENV_VARIABLES: ${{ inputs.env }}
+    - name: "Perform 'delete' action"
+      if: inputs.action == 'delete'
+      shell: bash
+      run: |
+        curl -H "Authorization:Bearer $OIDC_TOKEN" -H "Accepts:application/github-output" https://orc.apility.dev/deploy/delete?env=$NF_ENV
+      env:
+        OIDC_TOKEN: ${{ steps.oidc.outputs.token }}${{ inputs.token }}
+        NF_ENV: ${{ inputs.name }}
+    - name: "Perform 'deploy' action"
+      if: inputs.action == 'deploy'
+      shell: bash
+      run: |
+        curl -H "Authorization:Bearer $OIDC_TOKEN" -H "Accepts:application/github-output" https://orc.apility.dev/deploy?env=$NF_ENV
+      env:
+        OIDC_TOKEN: ${{ steps.oidc.outputs.token }}${{ inputs.token }}
+        NF_ENV: ${{ inputs.env }}
+            
