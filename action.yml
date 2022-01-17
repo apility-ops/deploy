@@ -56,5 +56,5 @@ runs:
         curl -H "Authorization:Bearer $OIDC_TOKEN" -H "Accepts:application/github-output" https://orc.apility.dev/deploy?env=$NF_ENV
       env:
         OIDC_TOKEN: ${{ steps.oidc.outputs.token }}${{ inputs.token }}
-        NF_ENV: ${{ inputs.env }}
+        NF_ENV: ${{ inputs.name }}
             
